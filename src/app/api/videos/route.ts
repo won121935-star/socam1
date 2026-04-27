@@ -4,9 +4,8 @@ import { prisma } from "@/lib/db";
 import { extractMetadata } from "@/lib/metadata";
 import { parseVideoUrl } from "@/lib/url-parser";
 
-// GET /api/videos?tag=...&collection=...&q=...&source=...&includeCached=1
-// 기본 동작: cached=false인 (사용자가 저장한) 영상만 반환.
-// includeCached=1이면 자동 수집 라이브러리(cached=true) 포함.
+// GET /api/videos?tag=&collection=&q=&source=&includeCached=&sort=&maxLength=&minLength=&year=
+// sort: recent (default) | rating | length-asc | length-desc | title
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tag = searchParams.get("tag");
@@ -14,6 +13,28 @@ export async function GET(req: Request) {
   const q = (searchParams.get("q") ?? "").trim();
   const source = searchParams.get("source") as "youtube" | "tvcf" | "other" | null;
   const includeCached = searchParams.get("includeCached") === "1";
+  const sort = searchParams.get("sort") ?? "recent";
+  const minLength = parseInt(searchParams.get("minLength") ?? "", 10);
+  const maxLength = parseInt(searchParams.get("maxLength") ?? "", 10);
+  const year = parseInt(searchParams.get("year") ?? "", 10);
+
+  // 길이 필터: 단위는 초
+  const lengthFilter: { gte?: number; lte?: number } = {};
+  if (Number.isFinite(minLength)) lengthFilter.gte = minLength;
+  if (Number.isFinite(maxLength)) lengthFilter.lte = maxLength;
+
+  // 연도 필터: createdAt 기준 (publishedAt 이 비어있는 항목 많아서)
+  let yearWhere: { gte: Date; lt: Date } | undefined;
+  if (Number.isFinite(year) && year > 2000 && year < 2100) {
+    yearWhere = { gte: new Date(`${year}-01-01`), lt: new Date(`${year + 1}-01-01`) };
+  }
+
+  // 정렬
+  let orderBy: { [k: string]: "asc" | "desc" } = { createdAt: "desc" };
+  if (sort === "rating") orderBy = { rating: "desc" };
+  else if (sort === "length-asc") orderBy = { durationSec: "asc" };
+  else if (sort === "length-desc") orderBy = { durationSec: "desc" };
+  else if (sort === "title") orderBy = { title: "asc" };
 
   const videos = await prisma.video.findMany({
     where: {
@@ -23,6 +44,10 @@ export async function GET(req: Request) {
       ...(collection
         ? { collections: { some: { name: collection } } }
         : {}),
+      ...(Object.keys(lengthFilter).length > 0
+        ? { durationSec: lengthFilter }
+        : {}),
+      ...(yearWhere ? { createdAt: yearWhere } : {}),
       ...(q
         ? {
             OR: [
@@ -38,7 +63,7 @@ export async function GET(req: Request) {
         : {}),
     },
     include: { tags: true, collections: true, notes: true },
-    orderBy: { createdAt: "desc" },
+    orderBy,
     take: 200,
   });
 

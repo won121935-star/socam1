@@ -91,6 +91,12 @@ export default function Home() {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [openedCollection, setOpenedCollection] = useState<string | null>(null);
 
+  // 아카이브 정렬·길이 필터
+  type SortKey = "recent" | "rating" | "length-asc" | "length-desc" | "title";
+  type LengthBucket = "all" | "short" | "medium" | "long";
+  const [archiveSort, setArchiveSort] = useState<SortKey>("recent");
+  const [archiveLength, setArchiveLength] = useState<LengthBucket>("all");
+
   const [modalVideo, setModalVideo] = useState<VideoModalData | null>(null);
   const [archivingKey, setArchivingKey] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -114,11 +120,17 @@ export default function Home() {
     const params = new URLSearchParams();
     if (activeTagFilter) params.set("tag", activeTagFilter);
     if (submittedArchiveQuery.trim()) params.set("q", submittedArchiveQuery.trim());
+    if (archiveSort !== "recent") params.set("sort", archiveSort);
+    if (archiveLength === "short") params.set("maxLength", "30");
+    else if (archiveLength === "medium") {
+      params.set("minLength", "31");
+      params.set("maxLength", "60");
+    } else if (archiveLength === "long") params.set("minLength", "61");
     const res = await fetch(`/api/videos?${params.toString()}`);
     if (!res.ok) return;
     const json = (await res.json()) as { videos: ArchiveVideo[] };
     setArchiveVideos(json.videos);
-  }, [activeTagFilter, submittedArchiveQuery]);
+  }, [activeTagFilter, submittedArchiveQuery, archiveSort, archiveLength]);
 
   useEffect(() => {
     refreshTags();
@@ -128,6 +140,19 @@ export default function Home() {
   useEffect(() => {
     if (tab === "archive") refreshArchive();
   }, [tab, refreshArchive]);
+
+  // 공유 링크 (?v=videoId) 자동 모달
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("v");
+    if (!id) return;
+    void openArchiveModal(id);
+    // 모달 후엔 URL 정리 (뒤로가기에 ?v= 안 남기게)
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, "", cleanUrl);
+    // 마운트 1회만
+  }, []);
 
   // 폴더 모드를 떠나거나 그룹핑이 꺼지면 열린 폴더 초기화
   useEffect(() => {
@@ -589,8 +614,48 @@ export default function Home() {
             </button>
           </form>
 
-          {/* 그룹핑 토글 */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* 정렬 + 길이 필터 + 그룹핑 토글 한 줄 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 정렬 */}
+            <select
+              value={archiveSort}
+              onChange={(e) => setArchiveSort(e.target.value as typeof archiveSort)}
+              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 ring-1 ring-zinc-800 outline-none hover:bg-zinc-800"
+            >
+              <option value="recent">최신순</option>
+              <option value="rating">⭐ 별점순</option>
+              <option value="length-asc">길이 짧은순</option>
+              <option value="length-desc">길이 긴순</option>
+              <option value="title">제목순</option>
+            </select>
+
+            {/* 길이 버킷 */}
+            <div className="flex items-center gap-1 rounded-full bg-zinc-900 p-1 ring-1 ring-zinc-800">
+              {([
+                ["all", "전체"],
+                ["short", "≤30s"],
+                ["medium", "31–60s"],
+                ["long", ">60s"],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setArchiveLength(k)}
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition",
+                    archiveLength === k
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-400 hover:text-zinc-200",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1" />
+
+            {/* 그룹핑 토글 */}
             <div className="flex items-center gap-1 rounded-md bg-zinc-900 p-1 ring-1 ring-zinc-800">
               {(["none", "project"] as const).map((g) => (
                 <button

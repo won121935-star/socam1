@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, X, Trash2, Star } from "lucide-react";
+import { Check, ExternalLink, Link2, X, Trash2, Star } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SourceBadge } from "./SourceBadge";
 
@@ -58,6 +58,27 @@ export function VideoModal({
       : "",
   );
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copyShareLink() {
+    if (!data.id) return;
+    const url = `${window.location.origin}/?v=${data.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // fallback: select and copy
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -201,6 +222,29 @@ export function VideoModal({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {data.id && (
+              <button
+                type="button"
+                onClick={copyShareLink}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs transition",
+                  copied
+                    ? "bg-emerald-700 text-white"
+                    : "bg-zinc-800 hover:bg-zinc-700",
+                )}
+                title="이 영상으로 바로 가는 링크 복사"
+              >
+                {copied ? (
+                  <>
+                    <Check size={12} /> 복사됨
+                  </>
+                ) : (
+                  <>
+                    <Link2 size={12} /> 공유
+                  </>
+                )}
+              </button>
+            )}
             <a
               href={data.url}
               target="_blank"
