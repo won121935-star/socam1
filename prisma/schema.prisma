@@ -1,0 +1,84 @@
+// Brand/Ad Video Archive - Prisma schema
+// SQLite for simple team-internal deployment.
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// 영상 한 건. YouTube / TVCF / 기타 소스 모두 동일 테이블에 저장.
+model Video {
+  id           String   @id @default(cuid())
+  source       String   // "youtube" | "tvcf" | "other"
+  sourceId     String?  // YouTube videoId, TVCF adId 등 (원본 식별자)
+  url          String   // 원본 페이지 URL
+  embedUrl     String?  // iframe 임베드용 URL (가능한 경우)
+  title        String
+  description  String?
+  thumbnailUrl String?
+  channelName  String?  // YouTube 채널 or TVCF 광고주
+  durationSec  Int?
+  publishedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rating Int? // 1~5, 팀 평가
+  cached Boolean @default(false) // true: 자동 수집된 라이브러리 항목 / false: 사용자가 직접 추가
+  brand   String? // 광고주
+  agency  String? // 에이전시
+
+  notes  Note[]
+  tags   Tag[]        @relation("VideoTags")
+  collections Collection[] @relation("VideoCollections")
+
+  @@unique([source, url])
+  @@index([source])
+  @@index([cached])
+  @@index([createdAt])
+}
+
+// 크롤러 / 일괄 수집 작업 메타데이터
+model SyncRun {
+  id         String   @id @default(cuid())
+  source     String   // "tvcf" 등
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  itemsFound Int      @default(0)
+  itemsSaved Int      @default(0)
+  errorCount Int      @default(0)
+  notes      String?
+
+  @@index([source, startedAt])
+}
+
+// 자유 태그 (예: "광고", "로고모션", "2024", "가전")
+model Tag {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  videos Video[] @relation("VideoTags")
+}
+
+// 폴더/컬렉션 (예: "2024 가전 광고 레퍼런스")
+model Collection {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  videos      Video[]  @relation("VideoCollections")
+}
+
+// 팀원 메모
+model Note {
+  id        String   @id @default(cuid())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  author    String?  // 작성자 이름 (auth 없으므로 자유 입력)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([videoId])
+}
