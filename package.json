@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "turso:migrate": "node scripts/turso-migrate.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
