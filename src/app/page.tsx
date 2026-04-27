@@ -434,7 +434,7 @@ export default function Home() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="검색어 입력 (예: 삼성 비스포크 광고)"
+                placeholder="검색어 입력 (예: 노란우산 광고)"
                 className="w-full rounded-full bg-zinc-900 py-4 pl-14 pr-28 text-base outline-none ring-1 ring-zinc-800 transition placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-500/60 md:text-lg"
               />
               <button
