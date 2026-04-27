@@ -107,14 +107,13 @@ async function safeYouTube(q: string, maxResults: number, pageToken?: string) {
 }
 
 async function searchTvcfCache(q: string, offset: number, take: number) {
+  // tags/collections 의 JOIN 검색은 큰 풀에서 매우 느림 (Vercel 10s timeout)
+  // → title/channelName/brand/agency 만 빠른 contains 검색
   const where = {
     source: "tvcf",
     OR: [
       { title: { contains: q } },
-      { description: { contains: q } },
       { channelName: { contains: q } },
-      { tags: { some: { name: { contains: q } } } },
-      { collections: { some: { name: { contains: q } } } },
       { brand: { contains: q } },
       { agency: { contains: q } },
     ],

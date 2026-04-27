@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getLastSyncRun, syncTvcf, type SyncProgress } from "@/lib/tvcf-crawler";
+import { getLastSyncRun, type SyncProgress } from "@/lib/tvcf-crawler";
+import { syncTvcfWithPlaywright } from "@/lib/tvcf-playwright-crawler";
 
 // 모듈 레벨 상태 — 단일 Node.js 프로세스 안에서만 유효 (dev 서버용)
 type RunningState = {
@@ -69,10 +70,10 @@ export async function POST() {
   state.result = null;
   state.error = null;
 
-  // fire-and-forget
+  // fire-and-forget — Playwright 헤드리스 크롤러 사용 (로컬에서만 실행)
   void (async () => {
     try {
-      const result = await syncTvcf((p) => {
+      const result = await syncTvcfWithPlaywright((p) => {
         state.progress = { ...p };
       });
       state.status = "done";
